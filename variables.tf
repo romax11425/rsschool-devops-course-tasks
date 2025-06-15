@@ -10,28 +10,42 @@ variable "S3_bucket_tf_state" {
   default     = "rss-tf-state"
 }
 
-# dynamodb variables
-
-variable "dynamodb_table_name" {
-  description = "DynamoDB table for terraform state lock"
+# IAM variables
+variable "github_actions_oidc_url" {
+  description = "GitHub Actions OIDC provider URL"
   type        = string
-  default     = "rss-tf-state-lock"
+  default     = "https://token.actions.githubusercontent.com"
 }
 
-variable "billing_mode" {
-  description = "DynamoDB billing mode"
-  type        = string
-  default     = "PAY_PER_REQUEST"
+variable "github_actions_client_id_list" {
+  description = "List of client IDs for GitHub Actions OIDC provider"
+  type        = list(string)
+  default     = ["sts.amazonaws.com"]
 }
 
-variable "hash_key" {
-  description = "DynamoDB hash key"
-  type        = string
-  default     = "LockID"
+variable "github_actions_thumbprint_list" {
+  description = "List of thumbprints for GitHub Actions OIDC provider"
+  type        = list(string)
+  default     = ["2b18947a6a9fc7764fd8b5fb18a863b0c6dac24f"]
 }
 
-variable "type" {
-  description = "DynamoDB hash key type"
+variable "github_actions_role_name" {
+  description = "Name of the IAM role for GitHub Actions"
   type        = string
-  default     = "S"
+  default     = "GithubActionsRole"
+}
+
+variable "iam_policies" {
+  description = "List of IAM policies to attach to the GitHub Actions role"
+  type        = list(string)
+  default = [
+    "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
+    "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+    "arn:aws:iam::aws:policy/IAMFullAccess",
+    "arn:aws:iam::aws:policy/AmazonVPCFullAccess",
+    "arn:aws:iam::aws:policy/AmazonRoute53FullAccess",
+    "arn:aws:iam::aws:policy/AmazonSQSFullAccess",
+    "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess",
+    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+  ]
 }

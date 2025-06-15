@@ -1,11 +1,11 @@
 resource "aws_iam_openid_connect_provider" "github_actions" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["2b18947a6a9fc7764fd8b5fb18a863b0c6dac24f"]
+  url             = var.github_actions_oidc_url
+  client_id_list  = var.github_actions_client_id_list
+  thumbprint_list = var.github_actions_thumbprint_list
 }
 
 resource "aws_iam_role" "github_actions_oidc" {
-  name = "GithubActionsRole"
+  name = var.github_actions_role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -33,21 +33,8 @@ resource "aws_iam_role" "github_actions_oidc" {
   }
 }
 
-locals {
-  full_access_policies = [
-    "arn:aws:iam::aws:policy/AmazonEC2FullAccess",
-    "arn:aws:iam::aws:policy/AmazonS3FullAccess",
-    "arn:aws:iam::aws:policy/IAMFullAccess",
-    "arn:aws:iam::aws:policy/AmazonVPCFullAccess",
-    "arn:aws:iam::aws:policy/AmazonRoute53FullAccess",
-    "arn:aws:iam::aws:policy/AmazonSQSFullAccess",
-    "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess",
-    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-  ]
-}
-
 resource "aws_iam_role_policy_attachment" "full_access" {
-  for_each   = toset(local.full_access_policies)
+  for_each   = toset(var.iam_policies)
   role       = aws_iam_role.github_actions_oidc.name
   policy_arn = each.value
 }

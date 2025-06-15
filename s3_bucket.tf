@@ -20,7 +20,6 @@ resource "aws_s3_bucket_policy" "prevent_deletion" {
         Principal = "*"
         Action = [
           "s3:DeleteBucket",
-          "s3:DeleteObject",
           "s3:DeleteObjectVersion"
         ]
         Resource = [
