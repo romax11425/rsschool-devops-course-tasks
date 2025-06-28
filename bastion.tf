@@ -40,7 +40,51 @@ resource "aws_instance" "bastion" {
     # Create .kube directory for ec2-user
     mkdir -p /home/ec2-user/.kube
     chown ec2-user:ec2-user /home/ec2-user/.kube
+    
+    # Create task-3/scripts directory
+    mkdir -p /home/ec2-user/task-3/scripts
+    chown -R ec2-user:ec2-user /home/ec2-user/task-3
   EOF
+
+  # Copy scripts to bastion host
+  provisioner "file" {
+    source      = "${path.module}/scripts/setup-kubectl-bastion.sh"
+    destination = "/home/ec2-user/task-3/scripts/setup-kubectl-bastion.sh"
+    
+    connection {
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = tls_private_key.task2_key.private_key_pem
+      host        = self.public_ip
+    }
+  }
+  
+  provisioner "file" {
+    source      = "${path.module}/scripts/validate-cluster.sh"
+    destination = "/home/ec2-user/task-3/scripts/validate-cluster.sh"
+    
+    connection {
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = tls_private_key.task2_key.private_key_pem
+      host        = self.public_ip
+    }
+  }
+  
+  # Set permissions for scripts
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /home/ec2-user/task-3/scripts/*.sh",
+      "chown -R ec2-user:ec2-user /home/ec2-user/task-3"
+    ]
+    
+    connection {
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = tls_private_key.task2_key.private_key_pem
+      host        = self.public_ip
+    }
+  }
 
   tags = {
     Name = "Bastion-Host"
