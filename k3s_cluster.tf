@@ -6,7 +6,7 @@ resource "random_password" "k3s_token" {
 
 # K3s Master Node
 resource "aws_instance" "k3s_master" {
-  ami                    = var.ami_id
+  ami                    = data.aws_ami.amazon_linux.id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.private[0].id
   vpc_security_group_ids = [aws_security_group.k3s_cluster.id]
@@ -24,7 +24,7 @@ resource "aws_instance" "k3s_master" {
 
 # K3s Worker Node
 resource "aws_instance" "k3s_worker" {
-  ami                    = var.ami_id
+  ami                    = data.aws_ami.amazon_linux.id
   instance_type          = var.instance_type
   subnet_id              = aws_subnet.private[1].id
   vpc_security_group_ids = [aws_security_group.k3s_cluster.id]
