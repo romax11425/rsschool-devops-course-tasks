@@ -93,11 +93,11 @@ variable "key_name" {
 variable "instance_type" {
   description = "Instance type for EC2 instances"
   type        = string
-  default     = "t3.small"  # Better performance for K3s
+  default     = "t3.small" # Better performance for K3s
 }
 
 variable "bastion_instance_type" {
   description = "Instance type for bastion host"
   type        = string
-  default     = "t2.micro"  # Bastion can stay small
+  default     = "t2.micro" # Bastion can stay small
 }
