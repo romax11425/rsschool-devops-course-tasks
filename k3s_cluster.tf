@@ -31,8 +31,8 @@ resource "aws_instance" "k3s_worker" {
   key_name               = aws_key_pair.task2_key.key_name
 
   user_data = base64encode(templatefile("${path.module}/scripts/k3s-worker.sh", {
-    k3s_token     = random_password.k3s_token.result
-    master_ip     = aws_instance.k3s_master.private_ip
+    k3s_token = random_password.k3s_token.result
+    master_ip = aws_instance.k3s_master.private_ip
   }))
 
   depends_on = [aws_instance.k3s_master]

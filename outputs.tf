@@ -46,7 +46,7 @@ output "k3s_worker_private_ip" {
 output "ssh_connection_commands" {
   description = "SSH commands to connect to the instances"
   value = {
-    bastion = "ssh -i task2-key.pem ec2-user@${aws_instance.bastion.public_ip}"
+    bastion    = "ssh -i task2-key.pem ec2-user@${aws_instance.bastion.public_ip}"
     k3s_master = "ssh -i task2-key.pem -o ProxyCommand='ssh -i task2-key.pem -W %h:%p ec2-user@${aws_instance.bastion.public_ip}' ec2-user@${aws_instance.k3s_master.private_ip}"
     k3s_worker = "ssh -i task2-key.pem -o ProxyCommand='ssh -i task2-key.pem -W %h:%p ec2-user@${aws_instance.bastion.public_ip}' ec2-user@${aws_instance.k3s_worker.private_ip}"
   }

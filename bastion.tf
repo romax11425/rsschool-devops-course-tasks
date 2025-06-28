@@ -50,7 +50,7 @@ resource "aws_instance" "bastion" {
   provisioner "file" {
     source      = "${path.module}/scripts/setup-kubectl-bastion.sh"
     destination = "/home/ec2-user/task-3/scripts/setup-kubectl-bastion.sh"
-    
+
     connection {
       type        = "ssh"
       user        = "ec2-user"
@@ -58,11 +58,11 @@ resource "aws_instance" "bastion" {
       host        = self.public_ip
     }
   }
-  
+
   provisioner "file" {
     source      = "${path.module}/scripts/validate-cluster.sh"
     destination = "/home/ec2-user/task-3/scripts/validate-cluster.sh"
-    
+
     connection {
       type        = "ssh"
       user        = "ec2-user"
@@ -70,14 +70,14 @@ resource "aws_instance" "bastion" {
       host        = self.public_ip
     }
   }
-  
+
   # Set permissions for scripts
   provisioner "remote-exec" {
     inline = [
       "chmod +x /home/ec2-user/task-3/scripts/*.sh",
       "chown -R ec2-user:ec2-user /home/ec2-user/task-3"
     ]
-    
+
     connection {
       type        = "ssh"
       user        = "ec2-user"
