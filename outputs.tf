@@ -32,3 +32,22 @@ output "nat_gateway_ip" {
   description = "Elastic IP of the NAT Gateway"
   value       = aws_eip.nat.public_ip
 }
+
+output "k3s_master_private_ip" {
+  description = "Private IP of the k3s master node"
+  value       = aws_instance.k3s_master.private_ip
+}
+
+output "k3s_worker_private_ip" {
+  description = "Private IP of the k3s worker node"
+  value       = aws_instance.k3s_worker.private_ip
+}
+
+output "ssh_connection_commands" {
+  description = "SSH commands to connect to the instances"
+  value = {
+    bastion = "ssh -i task2-key.pem ec2-user@${aws_instance.bastion.public_ip}"
+    k3s_master = "ssh -i task2-key.pem -o ProxyCommand='ssh -i task2-key.pem -W %h:%p ec2-user@${aws_instance.bastion.public_ip}' ec2-user@${aws_instance.k3s_master.private_ip}"
+    k3s_worker = "ssh -i task2-key.pem -o ProxyCommand='ssh -i task2-key.pem -W %h:%p ec2-user@${aws_instance.bastion.public_ip}' ec2-user@${aws_instance.k3s_worker.private_ip}"
+  }
+}

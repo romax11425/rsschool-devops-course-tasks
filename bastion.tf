@@ -1,14 +1,3 @@
-# Create a key pair
-resource "tls_private_key" "task2_key" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-resource "aws_key_pair" "task2_key" {
-  key_name   = "task2-key"
-  public_key = tls_private_key.task2_key.public_key_openssh
-}
-
 # Bastion Host
 resource "aws_instance" "bastion" {
   ami                    = "ami-0694d931cee176e7d" # Amazon Linux 2023 AMI in eu-west-1
@@ -42,6 +31,15 @@ resource "aws_instance" "bastion" {
     sed -i 's/#PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
     sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
     systemctl restart sshd
+    
+    # Install kubectl
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    chmod +x kubectl
+    mv kubectl /usr/local/bin/
+    
+    # Create .kube directory for ec2-user
+    mkdir -p /home/ec2-user/.kube
+    chown ec2-user:ec2-user /home/ec2-user/.kube
   EOF
 
   tags = {
