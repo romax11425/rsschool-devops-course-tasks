@@ -12,7 +12,7 @@ resource "aws_instance" "k3s_master" {
   vpc_security_group_ids = [aws_security_group.k3s_cluster.id]
   key_name               = aws_key_pair.task2_key.key_name
 
-  user_data = base64encode(templatefile("${path.module}/scripts/k3s-master.sh", {
+  user_data = base64encode(templatefile("${path.module}/k3s-master-userdata.sh", {
     k3s_token = random_password.k3s_token.result
   }))
 
@@ -30,7 +30,7 @@ resource "aws_instance" "k3s_worker" {
   vpc_security_group_ids = [aws_security_group.k3s_cluster.id]
   key_name               = aws_key_pair.task2_key.key_name
 
-  user_data = base64encode(templatefile("${path.module}/scripts/k3s-worker.sh", {
+  user_data = base64encode(templatefile("${path.module}/k3s-worker-userdata.sh", {
     k3s_token = random_password.k3s_token.result
     master_ip = aws_instance.k3s_master.private_ip
   }))

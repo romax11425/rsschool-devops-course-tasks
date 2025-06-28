@@ -70,6 +70,14 @@ resource "aws_security_group" "k3s_cluster" {
     self      = true
   }
 
+  # k3s API server access from bastion
+  ingress {
+    from_port       = 6443
+    to_port         = 6443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
   # Flannel VXLAN
   ingress {
     from_port = 8472
