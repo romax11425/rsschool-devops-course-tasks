@@ -87,3 +87,15 @@ variable "key_name" {
   type        = string
   default     = "task2-key"
 }
+
+variable "ami_id" {
+  description = "AMI ID for EC2 instances"
+  type        = string
+  default     = "ami-0694d931cee176e7d" # Amazon Linux 2023 AMI in eu-west-1
+}
+
+variable "instance_type" {
+  description = "Instance type for EC2 instances"
+  type        = string
+  default     = "t2.micro"
+}
