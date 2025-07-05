@@ -87,3 +87,17 @@ variable "key_name" {
   type        = string
   default     = "task2-key"
 }
+
+# AMI will be fetched dynamically using data source
+
+variable "instance_type" {
+  description = "Instance type for EC2 instances"
+  type        = string
+  default     = "t3.small" # Better performance for K3s
+}
+
+variable "bastion_instance_type" {
+  description = "Instance type for bastion host"
+  type        = string
+  default     = "t2.micro" # Bastion can stay small
+}
