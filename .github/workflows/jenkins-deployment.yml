@@ -1,0 +1,65 @@
+# This workflow is for AWS cloud deployment demonstration
+# For local minikube deployment, use manual commands from README
+
+name: Deploy Jenkins with Helm
+
+on:
+  push:
+    branches: [ task_4 ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy-jenkins:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-west-1
+      
+    - name: Setup Helm
+      run: |
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        helm version
+        
+    - name: Setup kubectl
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+        kubectl version --client
+        
+    - name: Update kubeconfig for EKS
+      run: |
+        aws eks update-kubeconfig --region us-west-1 --name jenkins-eks-cluster
+        kubectl cluster-info
+    
+    - name: Add Jenkins Helm repository
+      run: |
+        helm repo add jenkins https://charts.jenkins.io
+        helm repo update
+    
+    - name: Create namespace
+      run: |
+        kubectl create namespace jenkins --dry-run=client -o yaml | kubectl apply -f -
+    
+    - name: Deploy Jenkins
+      run: |
+        helm upgrade --install jenkins jenkins/jenkins \
+          --namespace jenkins \
+          --set controller.serviceType=LoadBalancer \
+          --set persistence.storageClass=gp2 \
+          --wait \
+          --timeout 15m
+    
+    - name: Verify deployment
+      run: |
+        kubectl get all -n jenkins
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=jenkins -n jenkins --timeout=300s
