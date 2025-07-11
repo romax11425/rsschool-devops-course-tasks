@@ -1,3 +1,130 @@
+# WebApp Helm Chart Deployment
+
+## Overview
+This project demonstrates deployment of a simple web application using Helm charts on Kubernetes (minikube).
+
+## Prerequisites
+- minikube running
+- Helm 3.x installed
+- kubectl configured
+
+## Application Structure
+
+```
+helm-charts/webapp/
+├── Chart.yaml          # Helm chart metadata
+├── values.yaml         # Configuration values
+└── templates/
+    ├── deployment.yaml # Kubernetes deployment
+    └── service.yaml    # Kubernetes service
+```
+
+## Deployment Steps
+
+### 1. Deploy the Application
+```bash
+# Install webapp using Helm
+helm install webapp helm-charts/webapp
+
+# Verify deployment
+kubectl get pods
+kubectl get svc
+```
+
+### 2. Access the Application
+```bash
+# Get minikube IP
+minikube ip
+
+# Access application in browser
+# URL: http://<minikube-ip>:30082
+```
+
+### 3. Verify Application
+```bash
+# Check application status
+helm status webapp
+
+# Test HTTP response
+curl http://$(minikube ip):30082
+```
+
+## Configuration
+
+### values.yaml
+- **Image**: nginx:latest
+- **Replicas**: 1
+- **Service Type**: NodePort
+- **Port**: 30082
+- **Resources**: 100m CPU, 128Mi memory
+
+### Chart.yaml
+- **Name**: webapp
+- **Version**: 0.1.0
+- **App Version**: 1.0
+
+## Management Commands
+
+```bash
+# List Helm releases
+helm list
+
+# Upgrade application
+helm upgrade webapp helm-charts/webapp
+
+# Uninstall application
+helm uninstall webapp
+
+# View application logs
+kubectl logs -l app=webapp
+```
+
+## Troubleshooting
+
+### Common Issues
+1. **Pod not starting**: Check resource limits
+2. **Service not accessible**: Verify NodePort configuration
+3. **Image pull errors**: Check internet connectivity
+
+### Debug Commands
+```bash
+# Describe pod
+kubectl describe pod -l app=webapp
+
+# Check events
+kubectl get events --sort-by='.lastTimestamp'
+
+# View pod logs
+kubectl logs -l app=webapp
+```
+
+## Architecture
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Browser       │───▶│   NodePort       │───▶│   Nginx Pod     │
+│   :30082        │    │   Service        │    │   :80           │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+## Files Created
+- `helm-charts/webapp/Chart.yaml` - Helm chart metadata
+- `helm-charts/webapp/values.yaml` - Application configuration
+- `helm-charts/webapp/templates/deployment.yaml` - Kubernetes deployment
+- `helm-charts/webapp/templates/service.yaml` - Kubernetes service
+- `webapp-README.md` - This documentation
+
+## Success Criteria
+✅ Helm chart created  
+✅ Application deployed  
+✅ Web browser accessible  
+✅ Artifacts stored in Git  
+✅ Documentation provided  
+
+## Next Steps
+1. Deploy the application: `helm install webapp helm-charts/webapp`
+2. Access via browser: `http://<minikube-ip>:30082`
+
 # RS School DevOps Course Tasks
 
 This repository contains infrastructure and deployment configurations for multiple DevOps tasks including AWS K3s cluster deployment and Jenkins automation with Helm.
