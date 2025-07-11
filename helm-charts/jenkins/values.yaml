@@ -1,0 +1,89 @@
+# Jenkins values for minikube deployment
+controller:
+  # Service configuration for minikube
+  serviceType: NodePort
+  nodePort: 30080
+  
+  # Admin user
+  admin:
+    username: admin
+    password: admin123
+  
+  # Resources optimized for minikube
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+  
+  # Java options to disable CSRF and setup wizard
+  javaOpts: "-Djenkins.install.runSetupWizard=false -Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true -Dhudson.security.csrf.DefaultCrumbIssuer.EXCLUDE_SESSION_ID=true"
+  
+  # Disable CSRF protection
+  csrf:
+    defaultCrumbIssuer:
+      enabled: false
+      proxyCompatability: false
+  
+  # Install required plugins
+  installPlugins:
+    - job-dsl:1.84
+    - configuration-as-code:1625.v27444588cc3d
+  
+  # JCasC configuration with Hello World job
+  JCasC:
+    defaultConfig: true
+    configScripts:
+      welcome: |
+        jenkins:
+          systemMessage: "Jenkins configured with JCasC on minikube"
+          crumbIssuer:
+            standard:
+              excludeClientIPFromCrumb: false
+          securityRealm:
+            local:
+              allowsSignup: false
+              users:
+                - id: admin
+                  password: admin123
+          authorizationStrategy:
+            globalMatrix:
+              permissions:
+                - "Overall/Administer:admin"
+                - "Overall/Read:authenticated"
+      
+      job-dsl: |
+        jobs:
+          - script: >
+              freeStyleJob('hello-world-job') {
+                description('Hello World job created via JCasC')
+                steps {
+                  shell('echo "Hello world from Jenkins on minikube!"')
+                }
+              }
+
+# Persistence configuration
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClass: standard
+
+# Service account
+serviceAccount:
+  create: true
+  name: jenkins
+
+# RBAC
+rbac:
+  create: true
+  readSecrets: true
+
+# Agent configuration
+agent:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: jenkins/inbound-agent
+    tag: 4.13-2-jdk11
