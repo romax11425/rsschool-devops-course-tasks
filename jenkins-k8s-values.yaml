@@ -1,0 +1,43 @@
+controller:
+  # Уменьшаем количество плагинов для снижения нагрузки
+  installPlugins:
+    - kubernetes:3842.v7ff395ed0cf3
+    - workflow-aggregator:596.v8c21c963d92d
+    - git:5.0.0
+    - docker-workflow:563.vd5d2e5c4007f
+  
+  # Добавляем ограничения ресурсов
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+    
+  # Отключаем JCasC для упрощения установки
+  JCasC:
+    enabled: false
+  
+  ingress:
+    enabled: false
+    apiVersion: "networking.k8s.io/v1"
+    hostName: jenkins.local
+  
+  serviceType: NodePort
+  nodePort: 30080
+  
+agent:
+  enabled: false
+  
+persistence:
+  enabled: true
+  size: "8Gi"
+  
+serviceAccount:
+  create: true
+  name: "jenkins"
+  annotations: {}
+  
+rbac:
+  create: true
