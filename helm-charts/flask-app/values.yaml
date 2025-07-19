@@ -1,0 +1,11 @@
+image:
+  repository: flask-app
+  tag: latest
+  pullPolicy: Never
+
+service:
+  type: NodePort
+  port: 5000
+  nodePort: 30081
+
+replicaCount: 1
