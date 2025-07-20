@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'jenkins/jenkins:lts'
+            args '-u root'
+        }
+    }
     
     environment {
         DOCKER_REGISTRY = 'docker.io'
@@ -9,6 +14,12 @@ pipeline {
     }
     
     stages {
+        stage('Setup Environment') {
+            steps {
+                sh 'apt-get update && apt-get install -y python3 python3-pip'
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 checkout scm
