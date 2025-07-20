@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         DOCKER_REGISTRY = 'docker.io'
-        DOCKER_REPO = 'your-dockerhub-username/flask-app'  // Замените 'your-dockerhub-username' на ваше имя пользователя Docker Hub
+        DOCKER_REPO = 'romax11425/flask-app'  // Замените 'your-dockerhub-username' на ваше имя пользователя Docker Hub
         DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'  // ID учетных данных, добавленных в Jenkins
         APP_VERSION = "${env.BUILD_NUMBER}"
     }
