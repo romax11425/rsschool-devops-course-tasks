@@ -35,6 +35,18 @@ pipeline {
                 
                 // Создаем пустой файл результатов для прохождения этапа
                 sh 'mkdir -p app && echo "<testsuites><testsuite><testcase classname=\'sample\' name=\'test_pass\'/></testsuite></testsuites>" > app/test-results.xml'
+                
+                // Запуск реальных тестов
+                dir('app') {
+                    sh '''
+                        # Установка pytest и pytest-cov
+                        pip install pytest pytest-cov
+                        
+                        # Запуск тестов с генерацией отчетов
+                        python -m pytest --cov=. --cov-report=xml:coverage.xml --junitxml=test-results.xml
+                    '''
+                }
+                // Примечание: Для запуска реальных тестов в среде выполнения Jenkins должен быть установлен Python и необходимые зависимости
             }
             post {
                 always {
@@ -42,16 +54,14 @@ pipeline {
                 }
             }
         }
+
         
         stage('SonarQube Analysis') {
             steps {
-                echo "Skipping SonarQube analysis for local testing"
-                // Для реального использования раскомментируйте код ниже и настройте SonarQube
-                /*
+                echo "Running SonarQube analysis"
                 withSonarQubeEnv('SonarQube') {
                     sh 'sonar-scanner'
                 }
-                */
             }
         }
         
@@ -101,23 +111,67 @@ pipeline {
     post {
         success {
             echo "Pipeline succeeded!"
-            // Для реального использования Slack раскомментируйте код ниже
-            /*
-            slackSend(
-                color: 'good',
-                message: "Pipeline succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
-            )
-            */
+            script {
+                def discordWebhookUrl = 'https://discord.com/api/webhooks/1396624113656664225/xdlWki9PF65QR1dlnYcNpWNC1ZJnhKIJKK4GWMOOKp3bDzta3uZSts4QKLInI5FAFpZo'
+                def payload = """
+                {
+                    "embeds": [
+                        {
+                            "title": "Pipeline Succeeded",
+                            "description": "${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                            "url": "${env.BUILD_URL}",
+                            "color": 3066993,
+                            "fields": [
+                                {
+                                    "name": "Status",
+                                    "value": "Success",
+                                    "inline": true
+                                },
+                                {
+                                    "name": "Build Number",
+                                    "value": "${env.BUILD_NUMBER}",
+                                    "inline": true
+                                }
+                            ]
+                        }
+                    ]
+                }
+                """
+                
+                sh "curl -X POST -H 'Content-Type: application/json' -d '${payload}' ${discordWebhookUrl}"
+            }
         }
         failure {
             echo "Pipeline failed!"
-            // Для реального использования Slack раскомментируйте код ниже
-            /*
-            slackSend(
-                color: 'danger',
-                message: "Pipeline failed: ${env.JOB_NAME} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
-            )
-            */
+            script {
+                def discordWebhookUrl = 'https://discord.com/api/webhooks/1396624113656664225/xdlWki9PF65QR1dlnYcNpWNC1ZJnhKIJKK4GWMOOKp3bDzta3uZSts4QKLInI5FAFpZo'
+                def payload = """
+                {
+                    "embeds": [
+                        {
+                            "title": "Pipeline Failed",
+                            "description": "${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                            "url": "${env.BUILD_URL}",
+                            "color": 15158332,
+                            "fields": [
+                                {
+                                    "name": "Status",
+                                    "value": "Failure",
+                                    "inline": true
+                                },
+                                {
+                                    "name": "Build Number",
+                                    "value": "${env.BUILD_NUMBER}",
+                                    "inline": true
+                                }
+                            ]
+                        }
+                    ]
+                }
+                """
+                
+                sh "curl -X POST -H 'Content-Type: application/json' -d '${payload}' ${discordWebhookUrl}"
+            }
         }
         always {
             cleanWs()
