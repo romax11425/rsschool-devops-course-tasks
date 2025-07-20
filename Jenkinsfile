@@ -37,23 +37,21 @@ pipeline {
                 sh 'mkdir -p app && echo "<testsuites><testsuite><testcase classname=\'sample\' name=\'test_pass\'/></testsuite></testsuites>" > app/test-results.xml'
                 
                 // Запуск реальных тестов
+                echo 'Checking for Python and pip...'
+                sh 'python3 --version || echo "Python3 not available"'
+                sh 'pip3 --version || echo "Pip3 not available"'
+                
+                // Установка зависимостей в пользовательском режиме
                 dir('app') {
                     sh '''
-                        # Установка Python и pip если они отсутствуют
-                        apt-get update && apt-get install -y python3 python3-pip
+                        # Установка в пользовательском режиме без sudo
+                        python3 -m pip install --user pytest pytest-cov
                         
-                        # Создание символических ссылок для совместимости
-                        ln -sf /usr/bin/python3 /usr/bin/python
-                        ln -sf /usr/bin/pip3 /usr/bin/pip
-                        
-                        # Установка pytest и pytest-cov
-                        pip install pytest pytest-cov
-
                         # Установка зависимостей приложения
-                        pip install -r requirements.txt
+                        python3 -m pip install --user -r requirements.txt
                         
                         # Запуск тестов с генерацией отчетов
-                        python -m pytest --cov=. --cov-report=xml:coverage.xml --junitxml=test-results.xml
+                        python3 -m pytest --cov=. --cov-report=xml:coverage.xml --junitxml=test-results.xml
                     '''
                 }
                 // Примечание: Для запуска реальных тестов в среде выполнения Jenkins должен быть установлен Python и необходимые зависимости
