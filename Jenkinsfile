@@ -39,8 +39,18 @@ pipeline {
                 // Запуск реальных тестов
                 dir('app') {
                     sh '''
+                        # Установка Python и pip если они отсутствуют
+                        apt-get update && apt-get install -y python3 python3-pip
+                        
+                        # Создание символических ссылок для совместимости
+                        ln -sf /usr/bin/python3 /usr/bin/python
+                        ln -sf /usr/bin/pip3 /usr/bin/pip
+                        
                         # Установка pytest и pytest-cov
                         pip install pytest pytest-cov
+
+                        # Установка зависимостей приложения
+                        pip install -r requirements.txt
                         
                         # Запуск тестов с генерацией отчетов
                         python -m pytest --cov=. --cov-report=xml:coverage.xml --junitxml=test-results.xml
