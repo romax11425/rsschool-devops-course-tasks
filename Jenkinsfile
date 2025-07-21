@@ -29,20 +29,20 @@ pipeline {
                 // Create main.py if it doesn't exist
                 sh '''
                     if [ ! -f app/main.py ]; then
-                        cat > app/main.py << 'EOF'
-                        from flask import Flask
+                        cat > app/main.py << EOF
+from flask import Flask
 
-                        app = Flask(__name__)
-
-
-                        @app.route('/')
-                        def hello():
-                            return 'Hello, World!'
+app = Flask(__name__)
 
 
-                        if __name__ == '__main__':
-                            app.run(host='0.0.0.0', port=5000)
-                        EOF
+@app.route('/')
+def hello():
+    return 'Hello, World!'
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+EOF
                         echo "Created main.py file"
                     else
                         echo "main.py already exists"
@@ -52,11 +52,11 @@ pipeline {
                 // Create requirements.txt if it doesn't exist
                 sh '''
                     if [ ! -f app/requirements.txt ]; then
-                        cat > app/requirements.txt << 'EOF'
-                        Flask==2.3.3
-                        pytest==7.4.0
-                        pytest-cov==4.1.0
-                        EOF
+                        cat > app/requirements.txt << EOF
+Flask==2.3.3
+pytest==7.4.0
+pytest-cov==4.1.0
+EOF
                         echo "Created requirements.txt file"
                     else
                         echo "requirements.txt already exists"
@@ -66,21 +66,21 @@ pipeline {
                 // Create test_main.py if it doesn't exist
                 sh '''
                     if [ ! -f app/test_main.py ]; then
-                        cat > app/test_main.py << 'EOF'
-                        import pytest
-                        from main import app
+                        cat > app/test_main.py << EOF
+import pytest
+from main import app
 
-                        @pytest.fixture
-                        def client():
-                            app.config['TESTING'] = True
-                            with app.test_client() as client:
-                                yield client
+@pytest.fixture
+def client():
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
 
-                        def test_hello(client):
-                            response = client.get('/')
-                            assert response.status_code == 200
-                            assert b'Hello, World!' in response.data
-                        EOF
+def test_hello(client):
+    response = client.get('/')
+    assert response.status_code == 200
+    assert b'Hello, World!' in response.data
+EOF
                         echo "Created test_main.py file"
                     else
                         echo "test_main.py already exists"
@@ -90,15 +90,15 @@ pipeline {
                 // Create Dockerfile if it doesn't exist
                 sh '''
                     if [ ! -f app/Dockerfile ]; then
-                        cat > app/Dockerfile << 'EOF'
-                        FROM python:3.9-slim
-                        WORKDIR /app
-                        COPY requirements.txt .
-                        RUN pip install -r requirements.txt
-                        COPY . .
-                        EXPOSE 5000
-                        CMD ["python", "main.py"]
-                        EOF
+                        cat > app/Dockerfile << EOF
+FROM python:3.9-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 5000
+CMD ["python", "main.py"]
+EOF
                         echo "Created Dockerfile"
                     else
                         echo "Dockerfile already exists"
@@ -181,14 +181,14 @@ pipeline {
                 // Create Chart.yaml if it doesn't exist
                 sh '''
                     if [ ! -f helm-charts/flask-app/Chart.yaml ]; then
-                        cat > helm-charts/flask-app/Chart.yaml << 'EOF'
-                        apiVersion: v2
-                        name: flask-app
-                        description: A Helm chart for Flask application
-                        type: application
-                        version: 0.1.0
-                        appVersion: "1.0.0"
-                        EOF
+                        cat > helm-charts/flask-app/Chart.yaml << EOF
+apiVersion: v2
+name: flask-app
+description: A Helm chart for Flask application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+EOF
                         echo "Created Chart.yaml"
                     else
                         echo "Chart.yaml already exists"
@@ -198,27 +198,27 @@ pipeline {
                 // Create values.yaml if it doesn't exist
                 sh '''
                     if [ ! -f helm-charts/flask-app/values.yaml ]; then
-                        cat > helm-charts/flask-app/values.yaml << 'EOF'
-                        replicaCount: 1
+                        cat > helm-charts/flask-app/values.yaml << EOF
+replicaCount: 1
 
-                        image:
-                          repository: romax11425/flask-app
-                          tag: latest
-                          pullPolicy: Always
+image:
+  repository: romax11425/flask-app
+  tag: latest
+  pullPolicy: Always
 
-                        service:
-                          type: NodePort
-                          port: 5000
-                          nodePort: 30081
+service:
+  type: NodePort
+  port: 5000
+  nodePort: 30081
 
-                        resources:
-                          limits:
-                            cpu: 100m
-                            memory: 128Mi
-                          requests:
-                            cpu: 50m
-                            memory: 64Mi
-                        EOF
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+EOF
                         echo "Created values.yaml"
                     else
                         echo "values.yaml already exists"
@@ -228,34 +228,34 @@ pipeline {
                 // Create deployment.yaml if it doesn't exist
                 sh '''
                     if [ ! -f helm-charts/flask-app/templates/deployment.yaml ]; then
-                        cat > helm-charts/flask-app/templates/deployment.yaml << 'EOF'
-                        apiVersion: apps/v1
-                        kind: Deployment
-                        metadata:
-                          name: {{ .Release.Name }}
-                          labels:
-                            app: {{ .Release.Name }}
-                        spec:
-                          replicas: {{ .Values.replicaCount }}
-                          selector:
-                            matchLabels:
-                              app: {{ .Release.Name }}
-                          template:
-                            metadata:
-                              labels:
-                                app: {{ .Release.Name }}
-                            spec:
-                              containers:
-                                - name: {{ .Chart.Name }}
-                                  image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-                                  imagePullPolicy: {{ .Values.image.pullPolicy }}
-                                  ports:
-                                    - name: http
-                                      containerPort: 5000
-                                      protocol: TCP
-                                  resources:
-                                    {{- toYaml .Values.resources | nindent 12 }}
-                        EOF
+                        cat > helm-charts/flask-app/templates/deployment.yaml << "EOF"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+EOF
                         echo "Created deployment.yaml"
                     else
                         echo "deployment.yaml already exists"
@@ -265,26 +265,26 @@ pipeline {
                 // Create service.yaml if it doesn't exist
                 sh '''
                     if [ ! -f helm-charts/flask-app/templates/service.yaml ]; then
-                        cat > helm-charts/flask-app/templates/service.yaml << 'EOF'
-                        apiVersion: v1
-                        kind: Service
-                        metadata:
-                          name: {{ .Release.Name }}
-                          labels:
-                            app: {{ .Release.Name }}
-                        spec:
-                          type: {{ .Values.service.type }}
-                          ports:
-                            - port: {{ .Values.service.port }}
-                              targetPort: http
-                              protocol: TCP
-                              name: http
-                              {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
-                              nodePort: {{ .Values.service.nodePort }}
-                              {{- end }}
-                          selector:
-                            app: {{ .Release.Name }}
-                        EOF
+                        cat > helm-charts/flask-app/templates/service.yaml << "EOF"
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}
+  selector:
+    app: {{ .Release.Name }}
+EOF
                         echo "Created service.yaml"
                     else
                         echo "service.yaml already exists"
