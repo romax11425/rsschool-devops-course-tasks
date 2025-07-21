@@ -1,16 +1,48 @@
 pipeline {
     agent {
-        docker {
-            image 'docker:dind'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        kubernetes {
+            yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: jenkins-agent
+    version: v1
+spec:
+  containers:
+  - name: jnlp
+    image: jenkins/inbound-agent:3309.v27b_9314fd1a_4-6
+  - name: python
+    image: python:3.13.5-slim
+    command: ["cat"]
+    tty: true
+  - name: docker
+    image: docker:28
+    command: ["cat"]
+    tty: true
+    volumeMounts:
+      - name: docker-sock
+        mountPath: /var/run/docker.sock
+  volumes:
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket
+"""
         }
     }
     
+    triggers {
+        pollSCM('H/5 * * * *') // Poll every 5 minutes
+    }
+    
     environment {
-        DOCKER_REGISTRY = 'docker.io'
-        DOCKER_REPO = 'romax11425/flask-app'  // Замените 'your-dockerhub-username' на ваше имя пользователя Docker Hub
-        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'  // ID учетных данных, добавленных в Jenkins
-        APP_VERSION = "${env.BUILD_NUMBER}"
+        DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials') //
+        IMAGE_NAME = 'flask-app'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        SONAR_TOKEN = credentials('sonarqube-token')
+        SONAR_ORGANIZATION = 'rss-devops-course-tasks'
+        SONAR_PROJECT_KEY = 'rss-devops-course-tasks_flask-app'
     }
     
     stages {
@@ -20,317 +52,167 @@ pipeline {
             }
         }
         
-        stage('Build') {
+        stage('Build Application') {
             steps {
-                echo 'Checking environment...'
-                sh 'which python || echo "Python not found"'
-                sh 'which pip || echo "Pip not found"'
-                
-                echo 'Setting up project files...'
-                
-                // Create app directory if it doesn't exist
-                sh 'mkdir -p app'
-                
-                // Create main.py if it doesn't exist
-                sh '''
-                    if [ ! -f app/main.py ]; then
-                        cat > app/main.py << EOF
-from flask import Flask
-
-app = Flask(__name__)
-
-
-@app.route('/')
-def hello():
-    return 'Hello, World!'
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-EOF
-                        echo "Created main.py file"
-                    else
-                        echo "main.py already exists"
-                    fi
-                '''
-                
-                // Create requirements.txt if it doesn't exist
-                sh '''
-                    if [ ! -f app/requirements.txt ]; then
-                        cat > app/requirements.txt << EOF
-Flask==2.3.3
-pytest==7.4.0
-pytest-cov==4.1.0
-EOF
-                        echo "Created requirements.txt file"
-                    else
-                        echo "requirements.txt already exists"
-                    fi
-                '''
-                
-                // Create test_main.py if it doesn't exist
-                sh '''
-                    if [ ! -f app/test_main.py ]; then
-                        cat > app/test_main.py << EOF
-import pytest
-from main import app
-
-@pytest.fixture
-def client():
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
-
-def test_hello(client):
-    response = client.get('/')
-    assert response.status_code == 200
-    assert b'Hello, World!' in response.data
-EOF
-                        echo "Created test_main.py file"
-                    else
-                        echo "test_main.py already exists"
-                    fi
-                '''
-                
-                // Create Dockerfile if it doesn't exist
-                sh '''
-                    if [ ! -f app/Dockerfile ]; then
-                        cat > app/Dockerfile << EOF
-FROM python:3.9-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-EXPOSE 5000
-CMD ["python", "main.py"]
-EOF
-                        echo "Created Dockerfile"
-                    else
-                        echo "Dockerfile already exists"
-                    fi
-                '''
-                
-                echo 'Project files setup complete'
+                container('python') {
+                    sh '''
+                        apt-get update && apt-get install -y gcc python3-dev
+                        pip install -r flask_app/requirements.txt
+                        pip install pytest pytest-cov
+                    '''
+                }
             }
         }
         
-        stage('Unit Tests') {
+        stage('Run Unit Tests') {
             steps {
-                echo 'Running tests in Docker...'
-                
-                // Create Dockerfile.test if it doesn't exist
-                sh '''
-                    if [ ! -f app/Dockerfile.test ]; then
-                        cat > app/Dockerfile.test << EOF
-FROM python:3.9-slim
-
-WORKDIR /app
-
-# Copy requirements first for better caching
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-# Copy application code and test files
-COPY . .
-
-# Run tests with coverage and generate XML reports
-CMD ["pytest", "--cov=.", "--cov-report=xml", "--junitxml=test-results.xml"]
-EOF
-                        echo "Created Dockerfile.test"
-                    else
-                        echo "Dockerfile.test already exists"
-                    fi
-                '''
-                
-                // Build test Docker image
-                sh 'docker build -t flask-app-test -f app/Dockerfile.test app/'
-                
-                // Create output directory
-                sh 'mkdir -p app/test-output'
-                
-                // Run tests in Docker container
-                sh '''
-                    docker run --name flask-app-test-container flask-app-test
-                    docker cp flask-app-test-container:/app/coverage.xml app/
-                    docker cp flask-app-test-container:/app/test-results.xml app/
-                    docker rm flask-app-test-container
-                '''
-                
-                echo 'Test reports generated successfully'
+                container('python') {
+                    dir('flask_app') {
+                        sh 'python -m pytest --cov=. --cov-report=xml:coverage.xml'
+                    }
+                }
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: 'app/test-results.xml'
-                    recordCoverage(tools: [[parser: 'COBERTURA', pattern: 'app/coverage.xml']])
+                    archiveArtifacts artifacts: 'flask_app/coverage.xml', allowEmptyArchive: true
                 }
             }
         }
+        
+        stage('Security Check') {
+            steps {
+                container('python') {
+                    sh '''
+                        pip install bandit safety
+                        mkdir -p reports
+                        
+                        # Run Bandit security scanner
+                        echo "Running Bandit security scan..."
+                        cd flask_app && python -m bandit -r . -f txt -o ../reports/bandit-report.txt || true
+                        
+                        # Run Safety dependency scanner
+                        echo "Running Safety dependency scan..."
+                        cd flask_app && python -m safety check -r requirements.txt --output text > ../reports/safety-report.txt || true
+                    '''
+                    
+                    // Archive reports
+                    archiveArtifacts artifacts: 'reports/*-report.txt', allowEmptyArchive: true
+                }
+            }
+        }
+        
+        stage('SonarCloud Analysis') {
+            steps {
+                container('python') {
+                    sh 'echo "Starting SonarCloud Analysis stage"'
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        sh 'echo "Credentials loaded successfully"'
+                        sh '''
+                            apt-get update -qq && apt-get install -y --no-install-recommends unzip wget openjdk-17-jre-headless
+                            # Download and install SonarScanner
+                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+                            unzip -q sonar-scanner-cli-*.zip
 
-        
-        stage('SonarQube Analysis') {
-            steps {
-                echo "Skipping SonarQube analysis for demonstration purposes"
-                echo "In a real environment, this would run SonarQube analysis"
-            }
-        }
-        
-        stage('Build Docker Image') {
-            steps {
-                echo 'Building Docker image...'
-                sh 'docker build -t ${DOCKER_REPO}:${APP_VERSION} -f app/Dockerfile app/'
-                sh 'docker tag ${DOCKER_REPO}:${APP_VERSION} ${DOCKER_REPO}:latest'
-                echo 'Docker image built successfully'
-            }
-        }
-        
-        stage('Push Docker Image') {
-            steps {
-                echo "Pushing Docker image to registry"
-                withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                    sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
-                    sh 'docker push ${DOCKER_REPO}:${APP_VERSION}'
-                    sh 'docker push ${DOCKER_REPO}:latest'
+                            # Run SonarCloud scan
+                            cd flask_app
+                            ../sonar-scanner-5.0.1.3006-linux/bin/sonar-scanner \\
+                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
+                              -Dsonar.organization=${SONAR_ORGANIZATION} \\
+                              -Dsonar.sources=. \\
+                              -Dsonar.host.url=https://sonarcloud.io \\
+                              -Dsonar.login=${SONAR_TOKEN} \\
+                              -Dsonar.python.coverage.reportPaths=coverage.xml
+                        '''
+                    }
                 }
-                echo "Docker image pushed successfully"
+            }
+        }
+        
+        stage('Docker Build and Push') {
+            steps {
+                container('docker') {
+                    dir('flask_app') {
+                        sh '''
+                            # Login to DockerHub
+                            echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin
+                            
+                            # Build Docker image
+                            docker build -t ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:${IMAGE_TAG} .
+                            docker tag ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:latest
+                            
+                            # Push Docker image
+                            docker push ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:${IMAGE_TAG}
+                            docker push ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:latest
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Install Helm') {
+            steps {
+                sh '''
+                    curl -LO https://get.helm.sh/helm-v3.18.4-linux-amd64.tar.gz
+                    tar -zxvf helm-v3.18.4-linux-amd64.tar.gz
+                    mv linux-amd64/helm ./helm
+                    chmod +x ./helm
+                '''
             }
         }
         
         stage('Deploy to Kubernetes') {
             steps {
-                echo 'Setting up Helm chart for deployment...'
-                
-                // Create Helm chart directory structure if it doesn't exist
-                sh '''
-                    mkdir -p helm-charts/flask-app/templates
-                '''
-                
-                // Create Chart.yaml if it doesn't exist
-                sh '''
-                    if [ ! -f helm-charts/flask-app/Chart.yaml ]; then
-                        cat > helm-charts/flask-app/Chart.yaml << EOF
-apiVersion: v2
-name: flask-app
-description: A Helm chart for Flask application
-type: application
-version: 0.1.0
-appVersion: "1.0.0"
-EOF
-                        echo "Created Chart.yaml"
-                    else
-                        echo "Chart.yaml already exists"
-                    fi
-                '''
-                
-                // Create values.yaml if it doesn't exist
-                sh '''
-                    if [ ! -f helm-charts/flask-app/values.yaml ]; then
-                        cat > helm-charts/flask-app/values.yaml << EOF
-replicaCount: 1
-
-image:
-  repository: romax11425/flask-app
-  tag: latest
-  pullPolicy: Always
-
-service:
-  type: NodePort
-  port: 5000
-  nodePort: 30081
-
-resources:
-  limits:
-    cpu: 100m
-    memory: 128Mi
-  requests:
-    cpu: 50m
-    memory: 64Mi
-EOF
-                        echo "Created values.yaml"
-                    else
-                        echo "values.yaml already exists"
-                    fi
-                '''
-                
-                // Create deployment.yaml if it doesn't exist
-                sh '''
-                    if [ ! -f helm-charts/flask-app/templates/deployment.yaml ]; then
-                        cat > helm-charts/flask-app/templates/deployment.yaml << "EOF"
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ .Release.Name }}
-  labels:
-    app: {{ .Release.Name }}
-spec:
-  replicas: {{ .Values.replicaCount }}
-  selector:
-    matchLabels:
-      app: {{ .Release.Name }}
-  template:
-    metadata:
-      labels:
-        app: {{ .Release.Name }}
-    spec:
-      containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: http
-              containerPort: 5000
-              protocol: TCP
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
-EOF
-                        echo "Created deployment.yaml"
-                    else
-                        echo "deployment.yaml already exists"
-                    fi
-                '''
-                
-                // Create service.yaml if it doesn't exist
-                sh '''
-                    if [ ! -f helm-charts/flask-app/templates/service.yaml ]; then
-                        cat > helm-charts/flask-app/templates/service.yaml << "EOF"
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ .Release.Name }}
-  labels:
-    app: {{ .Release.Name }}
-spec:
-  type: {{ .Values.service.type }}
-  ports:
-    - port: {{ .Values.service.port }}
-      targetPort: http
-      protocol: TCP
-      name: http
-      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
-      nodePort: {{ .Values.service.nodePort }}
-      {{- end }}
-  selector:
-    app: {{ .Release.Name }}
-EOF
-                        echo "Created service.yaml"
-                    else
-                        echo "service.yaml already exists"
-                    fi
-                '''
-                
-                echo 'Helm chart setup complete'
-                
-                // Deploy to Kubernetes using Helm
-                sh 'helm upgrade --install flask-app helm-charts/flask-app/ || echo "Helm deployment failed, continuing pipeline"'
-                echo 'Deployment to Kubernetes completed'
+                sh """
+                    # Create namespace if it doesn't exist
+                    ./helm upgrade --install flask-app ./flask_app/helm-chart/flask-app \\
+                        --create-namespace \\
+                        --namespace flask-app \\
+                        -f ./flask_app/helm-chart/flask-app/values-minikube.yaml \\
+                        --set image.repository=${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME} \\
+                        --set image.tag=${IMAGE_TAG} \\
+                        --set image.pullPolicy=IfNotPresent \\
+                        --timeout=300s
+                """
             }
         }
         
         stage('Verify Deployment') {
             steps {
-                echo 'Verifying deployment...'
-                sh 'kubectl get pods -l app=flask-app || echo "Could not find pods, continuing pipeline"'
-                sh 'kubectl get svc -l app=flask-app || echo "Could not find service, continuing pipeline"'
-                echo 'Verification completed'
+                sh '''
+                    # Install kubectl if needed
+                    if ! command -v kubectl &> /dev/null; then
+                        curl -LO "https://dl.k8s.io/release/stable.txt"
+                        KUBECTL_VERSION=$(cat stable.txt)
+                        curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+                        chmod +x kubectl
+                        mkdir -p $HOME/bin
+                        mv kubectl $HOME/bin/
+                        export PATH=$HOME/bin:$PATH
+                    fi
+                    
+                    # Check if pods are running
+                    echo "\nChecking pod status:"
+                    ./helm status flask-app -n flask-app
+                    kubectl get pods -n flask-app || echo "Could not get pods"
+                    
+                    # Kill any existing port-forward processes
+                    echo "\nSetting up port forwarding..."
+                    pkill -f "port-forward.*flask-app" || echo "No existing port-forward to kill"
+                    
+                    # Start port forwarding in the background
+                    kubectl port-forward svc/flask-app 8080:8080 -n flask-app &
+                    PORT_FORWARD_PID=$!
+                    
+                    # Give it a moment to establish
+                    sleep 3
+                    
+                    # Try to access the service via port-forward
+                    echo "\nAttempting to access the service via port-forward..."
+                    curl -v http://localhost:8080/ || echo "Service not accessible via port-forward"
+                    
+                    # Clean up port-forward
+                    kill $PORT_FORWARD_PID || echo "Could not kill port-forward process"
+                '''
             }
         }
     }
