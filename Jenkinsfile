@@ -68,14 +68,14 @@ spec:
         stage('Unit Tests') {
             steps {
                 container('python') {
-                    dir('flask_app') {
+                    dir('app') {
                         sh 'python -m pytest --cov=. --cov-report=xml:coverage.xml'
                     }
                 }
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'flask_app/coverage.xml', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'app/coverage.xml', allowEmptyArchive: true
                 }
             }
         }
@@ -89,11 +89,11 @@ spec:
                         
                         # Run Bandit security scanner
                         echo "Running Bandit security scan..."
-                        cd flask_app && python -m bandit -r . -f txt -o ../reports/bandit-report.txt || true
+                        cd app && python -m bandit -r . -f txt -o ../reports/bandit-report.txt || true
                         
                         # Run Safety dependency scanner
                         echo "Running Safety dependency scan..."
-                        cd flask_app && python -m safety check -r requirements.txt --output text > ../reports/safety-report.txt || true
+                        cd app && python -m safety check -r requirements.txt --output text > ../reports/safety-report.txt || true
                     '''
 
                     // Archive reports
@@ -132,7 +132,7 @@ spec:
         stage('Docker Build and Push') {
             steps {
                 container('docker') {
-                    dir('flask_app') {
+                    dir('app') {
                         sh '''
                             # Login to DockerHub
                             echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin
