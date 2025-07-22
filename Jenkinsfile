@@ -59,7 +59,7 @@ spec:
                     sh '''
                         apt-get update && apt-get install -y gcc python3-dev
                         pip install -r app/requirements.txt
-                        pip install pytest pytest-cov
+                        python -m pip install pytest==7.4.0 pytest-cov==4.1.0
                     '''
                 }
             }
