@@ -1,12 +1,50 @@
-pipeline {
-    agent any
-    
-    environment {
-        DOCKER_REGISTRY = 'docker.io'
-        DOCKER_REPO = 'romax11425/flask-app'  // Замените 'your-dockerhub-username' на ваше имя пользователя Docker Hub
-        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials'  // ID учетных данных, добавленных в Jenkins
-        APP_VERSION = "${env.BUILD_NUMBER}"
+    pipeline {
+    agent {
+        kubernetes {
+            yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: jenkins-agent
+    version: v1
+spec:
+  containers:
+  - name: jnlp
+    image: jenkins/inbound-agent:3309.v27b_9314fd1a_4-6
+  - name: python
+    image: python:3.13.5-slim
+    command: ["cat"]
+    tty: true
+  - name: docker
+    image: docker:28
+    command: ["cat"]
+    tty: true
+    volumeMounts:
+      - name: docker-sock
+        mountPath: /var/run/docker.sock
+  volumes:
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+        type: Socket
+"""
+        }
     }
+
+    triggers {
+        pollSCM('H/5 * * * *') // Poll every 5 minutes
+    }
+    
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials') // ID учетных данных, добавленных в Jenkins
+        IMAGE_NAME = 'flask-app'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        SONAR_TOKEN = credentials('sonarqube-token')
+        SONAR_ORGANIZATION = 'rss-devops-course-tasks'
+        SONAR_PROJECT_KEY = 'rss-devops-course-tasks_flask-app'
+     }
     
     stages {
         stage('Checkout') {
@@ -15,113 +53,168 @@ pipeline {
             }
         }
         
-        stage('Build') {
+    stage('Build Application') {
             steps {
-                echo 'Checking environment...'
-                sh 'which python || echo "Python not found"'
-                sh 'which pip || echo "Pip not found"'
-                
-                echo 'Skipping dependency installation for now...'
-                // Просто показываем содержимое файла requirements.txt
-                sh 'cat app/requirements.txt || echo "File not found"'
+                container('python') {
+                    sh '''
+                        apt-get update && apt-get install -y gcc python3-dev
+                        pip install -r flask_app/requirements.txt
+                        pip install pytest pytest-cov
+                    '''
+                }
             }
         }
         
         stage('Unit Tests') {
             steps {
-                echo 'Skipping tests for now...'
-                // Просто показываем содержимое тестового файла
-                sh 'cat app/test_main.py || echo "Test file not found"'
-                
-                // Создаем пустой файл результатов для прохождения этапа
-                sh 'mkdir -p app && echo "<testsuites><testsuite><testcase classname=\'sample\' name=\'test_pass\'/></testsuite></testsuites>" > app/test-results.xml'
-                
-                // Создаем фиктивный отчет о покрытии
-                sh '''
-                    mkdir -p app
-                    cat > app/coverage.xml << EOF
-<?xml version="1.0" ?>
-<coverage version="6.5.0" timestamp="1689955200" lines-valid="20" lines-covered="18" line-rate="0.9" branches-valid="4" branches-covered="3" branch-rate="0.75" complexity="5">
-    <packages>
-        <package name="app" line-rate="0.9" branch-rate="0.75" complexity="5">
-            <classes>
-                <class name="main.py" filename="main.py" line-rate="0.9" branch-rate="0.75" complexity="5">
-                    <methods/>
-                    <lines>
-                        <line number="1" hits="1"/>
-                        <line number="2" hits="1"/>
-                        <line number="5" hits="1"/>
-                        <line number="6" hits="1"/>
-                        <line number="9" hits="1"/>
-                        <line number="10" hits="1"/>
-                        <line number="11" hits="1"/>
-                        <line number="14" hits="1"/>
-                        <line number="15" hits="0"/>
-                        <line number="18" hits="1"/>
-                    </lines>
-                </class>
-            </classes>
-        </package>
-    </packages>
-</coverage>
-EOF
-                '''
-                // Примечание: Для запуска реальных тестов в среде выполнения Jenkins должен быть установлен Python и необходимые зависимости
+                container('python') {
+                    dir('flask_app') {
+                        sh 'python -m pytest --cov=. --cov-report=xml:coverage.xml'
+                    }
+                }
             }
             post {
                 always {
-                    junit allowEmptyResults: true, testResults: 'app/test-results.xml'
+                    archiveArtifacts artifacts: 'flask_app/coverage.xml', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Security Check') {
+            steps {
+                container('python') {
+                    sh '''
+                        pip install bandit safety
+                        mkdir -p reports
+                        
+                        # Run Bandit security scanner
+                        echo "Running Bandit security scan..."
+                        cd flask_app && python -m bandit -r . -f txt -o ../reports/bandit-report.txt || true
+                        
+                        # Run Safety dependency scanner
+                        echo "Running Safety dependency scan..."
+                        cd flask_app && python -m safety check -r requirements.txt --output text > ../reports/safety-report.txt || true
+                    '''
+
+                    // Archive reports
+                    archiveArtifacts artifacts: 'reports/*-report.txt', allowEmptyArchive: true
                 }
             }
         }
 
         
-        stage('SonarQube Analysis') {
+        stage('SonarCloud Analysis') {
             steps {
-                echo "Skipping SonarQube analysis for demonstration purposes"
-                echo "In a real environment, this would run SonarQube analysis"
-            }
-        }
-        
-        stage('Build Docker Image') {
-            steps {
-                echo 'Skipping Docker image build...'
-                sh 'cat app/Dockerfile || echo "Dockerfile not found"'
-            }
-        }
-        
-        stage('Push Docker Image') {
-            steps {
-                echo "Attempting to push Docker image to registry"
-                // Используем учетные данные Docker Hub для аутентификации
-                script {
-                    try {
-                        docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS_ID) {
-                            echo "Authenticated with Docker registry"
-                            echo "Pushing ${DOCKER_REPO}:${APP_VERSION} and ${DOCKER_REPO}:latest"
-                            docker.image("${DOCKER_REPO}:${APP_VERSION}").push()
-                            docker.image("${DOCKER_REPO}:${APP_VERSION}").push('latest')
-                        }
-                    } catch (Exception e) {
-                        echo "Failed to authenticate with Docker registry: ${e.message}"
+                container('python') {
+                    sh 'echo "Starting SonarCloud Analysis stage"'
+                    withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                        sh 'echo "Credentials loaded successfully"'
+                        sh '''
+                            apt-get update -qq && apt-get install -y --no-install-recommends unzip wget openjdk-17-jre-headless
+                            # Download and install SonarScanner
+                            wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+                            unzip -q sonar-scanner-cli-*.zip
+                            # Run SonarCloud scan
+                            cd app
+                            ../sonar-scanner-5.0.1.3006-linux/bin/sonar-scanner \\
+                              -Dsonar.projectKey=${SONAR_PROJECT_KEY} \\
+                              -Dsonar.organization=${SONAR_ORGANIZATION} \\
+                              -Dsonar.sources=. \\
+                              -Dsonar.host.url=https://sonarcloud.io \\
+                              -Dsonar.login=${SONAR_TOKEN} \\
+                              -Dsonar.python.coverage.reportPaths=coverage.xml
+                        '''
                     }
                 }
             }
         }
         
+        stage('Docker Build and Push') {
+            steps {
+                container('docker') {
+                    dir('flask_app') {
+                        sh '''
+                            # Login to DockerHub
+                            echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin
+                            
+                            # Build Docker image
+                            docker build -t ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:${IMAGE_TAG} .
+                            docker tag ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:latest
+                            
+                            # Push Docker image
+                            docker push ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:${IMAGE_TAG}
+                            docker push ${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME}:latest
+                        '''
+                    }
+                }
+            }
+        }
+
+
+        stage('Install Helm') {
+            steps {
+                sh '''
+                    curl -LO https://get.helm.sh/helm-v3.18.4-linux-amd64.tar.gz
+                    tar -zxvf helm-v3.18.4-linux-amd64.tar.gz
+                    mv linux-amd64/helm ./helm
+                    chmod +x ./helm
+                '''
+            }
+        }
+        
         stage('Deploy to Kubernetes') {
             steps {
-                echo 'Skipping Kubernetes deployment...'
-                echo 'Checking Helm chart files...'
-                sh 'ls -la helm-charts/flask-app/ || echo "Helm chart directory not found"'
-                sh 'cat helm-charts/flask-app/values.yaml || echo "values.yaml not found"'
+                sh """
+                    # Create namespace if it doesn't exist
+                    ./helm upgrade --install flask-app ./app/helm-charts/flask-app \\
+                        --create-namespace \\
+                        --namespace flask-app \\
+                        -f ./app/helm-charts/flask-app/values-minikube.yaml \\
+                        --set image.repository=${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME} \\
+                        --set image.tag=${IMAGE_TAG} \\
+                        --set image.pullPolicy=IfNotPresent \\
+                        --timeout=300s
+                """
             }
         }
         
         stage('Verify Deployment') {
             steps {
-                echo 'Skipping deployment verification...'
-                echo 'This would normally check if the application is accessible'
+                sh '''
+                    # Install kubectl if needed
+                    if ! command -v kubectl &> /dev/null; then
+                        curl -LO "https://dl.k8s.io/release/stable.txt"
+                        KUBECTL_VERSION=$(cat stable.txt)
+                        curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+                        chmod +x kubectl
+                        mkdir -p $HOME/bin
+                        mv kubectl $HOME/bin/
+                        export PATH=$HOME/bin:$PATH
+                    fi
+                    
+                    # Check if pods are running
+                    echo "\nChecking pod status:"
+                    ./helm status flask-app -n flask-app
+                    kubectl get pods -n flask-app || echo "Could not get pods"
+                    
+                    # Kill any existing port-forward processes
+                    echo "\nSetting up port forwarding..."
+                    pkill -f "port-forward.*flask-app" || echo "No existing port-forward to kill"
+                    
+                    # Start port forwarding in the background
+                    kubectl port-forward svc/flask-app 8080:8080 -n flask-app &
+                    PORT_FORWARD_PID=$!
+                    
+                    # Give it a moment to establish
+                    sleep 3
+                    
+                    # Try to access the service via port-forward
+                    echo "\nAttempting to access the service via port-forward..."
+                    curl -v http://localhost:8080/ || echo "Service not accessible via port-forward"
+                    
+                    # Clean up port-forward
+                    kill $PORT_FORWARD_PID || echo "Could not kill port-forward process"
+                '''
             }
         }
     }
