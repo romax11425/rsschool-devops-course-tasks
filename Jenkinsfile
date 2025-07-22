@@ -42,7 +42,7 @@ spec:
         IMAGE_NAME = 'flask-app'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         SONAR_TOKEN = credentials('sonarqube-token')
-        SONAR_ORGANIZATION = 'rss-devops-course-tasks'
+        SONAR_ORGANIZATION = 'rss-devops-course-tasks-romax114'
         SONAR_PROJECT_KEY = 'rss-devops-course-tasks_flask-app'
      }
     
