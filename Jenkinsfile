@@ -58,7 +58,7 @@ spec:
                 container('python') {
                     sh '''
                         apt-get update && apt-get install -y gcc python3-dev
-                        pip install -r flask_app/requirements.txt
+                        pip install -r app/requirements.txt
                         pip install pytest pytest-cov
                     '''
                 }
