@@ -4,8 +4,9 @@ image:
   pullPolicy: Never
 
 service:
-  type: ClusterIP
+  type: NodePort
   port: 8080
+  nodePort: 30081
 
 serviceAccount:
   create: true
