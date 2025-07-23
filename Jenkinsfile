@@ -203,10 +203,10 @@ spec:
                     
                     # Kill any existing port-forward processes
                     echo "\nSetting up port forwarding..."
-                    pkill -f "port-forward.*flask-app" || echo "No existing port-forward to kill"
+                    which pkill && pkill -f "port-forward.*flask-app" || echo "No existing port-forward to kill"
                     
                     # Start port forwarding in the background
-                    kubectl port-forward svc/flask-app 8080:8080 -n flask-app &
+                    kubectl port-forward svc/flask-app-service 8080:8080 -n flask-app &
                     PORT_FORWARD_PID=$!
                     
                     # Give it a moment to establish
@@ -217,7 +217,7 @@ spec:
                     curl -v http://localhost:8080/ || echo "Service not accessible via port-forward"
                     
                     # Clean up port-forward
-                    kill $PORT_FORWARD_PID || echo "Could not kill port-forward process"
+                    ps -p $PORT_FORWARD_PID >/dev/null 2>&1 && kill $PORT_FORWARD_PID || echo "Could not kill port-forward process"
                 '''
             }
         }
