@@ -176,7 +176,7 @@ spec:
                         -f ./helm-charts/flask-app/values-minikube.yaml \\
                         --set image.repository=${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME} \\
                         --set image.tag=${IMAGE_TAG} \\
-                        --set image.pullPolicy=IfNotPresent \\
+                        --set image.pullPolicy=Always \\
                         --timeout=300s
                 """
             }
@@ -196,10 +196,24 @@ spec:
                         export PATH=$HOME/bin:$PATH
                     fi
                     
+                    # Wait for pods to be ready
+                    echo "\nWaiting for pods to be ready:"
+                    kubectl wait --for=condition=ready pod -l app=flask-app -n flask-app --timeout=60s || true
+                    
                     # Check if pods are running
                     echo "\nChecking pod status:"
                     ./helm status flask-app -n flask-app
-                    kubectl get pods -n flask-app || echo "Could not get pods"
+                    kubectl get pods -n flask-app -o wide || echo "Could not get pods"
+                    
+                    # Check pod logs for any issues
+                    echo "\nChecking pod logs:"
+                    POD_NAME=$(kubectl get pods -n flask-app -l app=flask-app --field-selector=status.phase=Running -o jsonpath="{.items[0].metadata.name}")
+                    if [ -n "$POD_NAME" ]; then
+                        echo "Logs from pod $POD_NAME:"
+                        kubectl logs $POD_NAME -n flask-app
+                    else
+                        echo "No running pods found"
+                    fi
                     
                     # Get service name
                     echo "\nGetting service name:"
