@@ -1,4 +1,4 @@
-    pipeline {
+pipeline {
     agent {
         kubernetes {
             yaml """
@@ -36,14 +36,14 @@ spec:
         pollSCM('H/5 * * * *') // Poll every 5 minutes
     }
     
-
     environment {
         DOCKERHUB_CREDENTIALS = credentials('docker-hub-credentials') // ID учетных данных, добавленных в Jenkins
         IMAGE_NAME = 'flask-app'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        SONAR_TOKEN = credentials('sonarqube-token')
+        SONAR_TOKEN = credentials('sonar')
         SONAR_ORGANIZATION = 'rss-devops-course-tasks-romax114'
         SONAR_PROJECT_KEY = 'rss-devops-course-tasks_flask-app'
+        DISCORD_WEBHOOK = credentials('discord-webhook-url')
      }
     
     stages {
@@ -226,84 +226,23 @@ spec:
         success {
             echo "Pipeline succeeded!"
             script {
-                def discordWebhookUrl = 'https://discord.com/api/webhooks/1396624113656664225/xdlWki9PF65QR1dlnYcNpWNC1ZJnhKIJKK4GWMOOKp3bDzta3uZSts4QKLInI5FAFpZo'
                 def message = "✅ Pipeline succeeded for build #${env.BUILD_NUMBER}! Application deployed successfully."
                 sh """
-                    curl -X POST -H "Content-Type: application/json" \
-                    -d '{"content": "${message}"}' \
-                    ${discordWebhookUrl}
+                    curl -X POST -H "Content-Type: application/json" \\
+                    -d '{"content": "${message}"}' \\
+                    ${DISCORD_WEBHOOK}
                 """
             }
         }
         failure {
             echo "Pipeline failed!"
             script {
-                def discordWebhookUrl = 'https://discord.com/api/webhooks/1396624113656664225/xdlWki9PF65QR1dlnYcNpWNC1ZJnhKIJKK4GWMOOKp3bDzta3uZSts4QKLInI5FAFpZo'
                 def message = "❌ Pipeline failed for build #${env.BUILD_NUMBER}! Check Jenkins for details."
                 sh """
-                    curl -X POST -H "Content-Type: application/json" \
-                    -d '{"content": "${message}"}' \
-                    ${discordWebhookUrl}
+                    curl -X POST -H "Content-Type: application/json" \\
+                    -d '{"content": "${message}"}' \\
+                    ${DISCORD_WEBHOOK}
                 """
-            }
-        } payload = """
-                {
-                    "embeds": [
-                        {
-                            "title": "Pipeline Succeeded",
-                            "description": "${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                            "url": "${env.BUILD_URL}",
-                            "color": 3066993,
-                            "fields": [
-                                {
-                                    "name": "Status",
-                                    "value": "Success",
-                                    "inline": true
-                                },
-                                {
-                                    "name": "Build Number",
-                                    "value": "${env.BUILD_NUMBER}",
-                                    "inline": true
-                                }
-                            ]
-                        }
-                    ]
-                }
-                """
-                
-                sh "curl -X POST -H 'Content-Type: application/json' -d '${payload}' ${discordWebhookUrl}"
-            }
-        }
-        failure {
-            echo "Pipeline failed!"
-            script {
-                def discordWebhookUrl = 'https://discord.com/api/webhooks/1396624113656664225/xdlWki9PF65QR1dlnYcNpWNC1ZJnhKIJKK4GWMOOKp3bDzta3uZSts4QKLInI5FAFpZo'
-                def payload = """
-                {
-                    "embeds": [
-                        {
-                            "title": "Pipeline Failed",
-                            "description": "${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                            "url": "${env.BUILD_URL}",
-                            "color": 15158332,
-                            "fields": [
-                                {
-                                    "name": "Status",
-                                    "value": "Failure",
-                                    "inline": true
-                                },
-                                {
-                                    "name": "Build Number",
-                                    "value": "${env.BUILD_NUMBER}",
-                                    "inline": true
-                                }
-                            ]
-                        }
-                    ]
-                }
-                """
-                
-                sh "curl -X POST -H 'Content-Type: application/json' -d '${payload}' ${discordWebhookUrl}"
             }
         }
         always {
