@@ -201,23 +201,47 @@ spec:
                     ./helm status flask-app -n flask-app
                     kubectl get pods -n flask-app || echo "Could not get pods"
                     
-                    # Kill any existing port-forward processes
-                    echo "\nSetting up port forwarding..."
-                    which pkill && pkill -f "port-forward.*flask-app" || echo "No existing port-forward to kill"
+                    # Get service name
+                    echo "\nGetting service name:"
+                    kubectl get svc -n flask-app
+                    SERVICE_NAME=$(kubectl get svc -n flask-app -o name | head -1 | sed "s|service/||")
+                    echo "Found service: ${SERVICE_NAME}"
                     
-                    # Start port forwarding in the background
-                    kubectl port-forward svc/flask-app-service 8080:8080 -n flask-app &
-                    PORT_FORWARD_PID=$!
-                    
-                    # Give it a moment to establish
-                    sleep 3
-                    
-                    # Try to access the service via port-forward
-                    echo "\nAttempting to access the service via port-forward..."
-                    curl -v http://localhost:8080/ || echo "Service not accessible via port-forward"
-                    
-                    # Clean up port-forward
-                    ps -p $PORT_FORWARD_PID >/dev/null 2>&1 && kill $PORT_FORWARD_PID || echo "Could not kill port-forward process"
+                    if [ -n "${SERVICE_NAME}" ]; then
+                        # Kill any existing port-forward processes
+                        echo "\nSetting up port forwarding..."
+                        if command -v pkill >/dev/null 2>&1; then
+                            pkill -f "port-forward" || echo "No existing port-forward to kill"
+                        fi
+                        
+                        # Start port forwarding in the background
+                        echo "Starting port-forward for service ${SERVICE_NAME}"
+                        kubectl port-forward svc/${SERVICE_NAME} 8080:8080 -n flask-app &
+                        PORT_FORWARD_PID=$!
+                        
+                        # Give it a moment to establish
+                        sleep 5
+                        
+                        # Try to access the service via port-forward
+                        echo "\nAttempting to access the service via port-forward..."
+                        RESPONSE=$(curl -s http://localhost:8080/)
+                        if [ "$RESPONSE" = "Hello, World!" ]; then
+                            echo "✅ Application is running correctly! Response: $RESPONSE"
+                        else
+                            echo "❌ Unexpected response from application: $RESPONSE"
+                            curl -v http://localhost:8080/ || echo "Service not accessible via port-forward"
+                        fi
+                        
+                        # Clean up port-forward
+                        if ps -p $PORT_FORWARD_PID >/dev/null 2>&1; then
+                            echo "Killing port-forward process ${PORT_FORWARD_PID}"
+                            kill $PORT_FORWARD_PID
+                        else
+                            echo "Port-forward process not found"
+                        fi
+                    else
+                        echo "No service found in namespace flask-app"
+                    fi
                 '''
             }
         }
