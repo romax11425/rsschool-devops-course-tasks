@@ -170,10 +170,10 @@ spec:
             steps {
                 sh """
                     # Create namespace if it doesn't exist
-                    ./helm upgrade --install flask-app ./app/helm-charts/flask-app \\
+                    ./helm upgrade --install flask-app ./helm-charts/flask-app \\
                         --create-namespace \\
                         --namespace flask-app \\
-                        -f ./app/helm-charts/flask-app/values-minikube.yaml \\
+                        -f ./helm-charts/flask-app/values-minikube.yaml \\
                         --set image.repository=${DOCKERHUB_CREDENTIALS_USR}/${IMAGE_NAME} \\
                         --set image.tag=${IMAGE_TAG} \\
                         --set image.pullPolicy=IfNotPresent \\
