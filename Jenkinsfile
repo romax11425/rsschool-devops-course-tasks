@@ -93,7 +93,7 @@ spec:
                         
                         # Run Safety dependency scanner
                         echo "Running Safety dependency scan..."
-                        cd app && python -m safety check -r requirements.txt --output text > ../reports/safety-report.txt || true
+                        python -m safety check -r requirements.txt --output text > ../reports/safety-report.txt || true
                     '''
 
                     // Archive reports
