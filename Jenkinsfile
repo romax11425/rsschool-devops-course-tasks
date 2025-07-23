@@ -108,13 +108,14 @@ spec:
                 container('python') {
                     sh 'echo "Starting SonarCloud Analysis stage"'
                     catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                        withCredentials([string(credentialsId: 'sonar', variable: 'SONAR_TOKEN')]) {
                             sh 'echo "Credentials loaded successfully"'
                             sh '''
                                 apt-get update -qq && apt-get install -y --no-install-recommends unzip wget openjdk-17-jre-headless
                                 # Download and install SonarScanner
                                 wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
                                 unzip -q sonar-scanner-cli-*.zip
+                                
                                 # Run SonarCloud scan
                                 cd app
                                 ../sonar-scanner-5.0.1.3006-linux/bin/sonar-scanner \\
