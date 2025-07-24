@@ -1,4 +1,151 @@
-# WebApp Helm Chart Deployment
+# Task 6: CI/CD Pipeline with Jenkins for Flask Application
+
+## Overview
+This project demonstrates a complete CI/CD pipeline using Jenkins to deploy a Flask application to a Kubernetes cluster (minikube). The pipeline includes build, test, security scanning, Docker image creation, and deployment stages.
+
+## Prerequisites
+- minikube running on Docker
+- Jenkins installed with necessary plugins
+- SonarCloud account configured
+- Docker Hub account
+- kubectl configured for minikube
+- Helm installed
+
+## Repository Structure
+```
+rsschool-devops-course-tasks/
+├── app/                           # Flask application
+│   ├── main.py                    # Flask application code
+│   ├── test_main.py               # Unit tests
+│   ├── requirements.txt           # Python dependencies
+│   └── Dockerfile                 # Docker image definition
+├── helm-charts/
+│   └── flask-app/                 # Helm chart for Flask application
+│       ├── templates/
+│       │   ├── deployment.yaml    # Kubernetes deployment
+│       │   └── service.yaml       # Kubernetes service
+│       ├── Chart.yaml             # Helm chart metadata
+│       └── values-minikube.yaml   # Configuration values for minikube
+├── Jenkinsfile                    # Jenkins pipeline definition
+└── README.md                      # This documentation
+```
+
+## CI/CD Pipeline Workflow
+
+### 1. Checkout
+- Retrieves code from Git repository
+
+### 2. Build Application
+- Installs Python dependencies
+- Prepares the application for testing
+
+### 3. Unit Tests
+- Runs pytest with coverage reporting
+- Archives test results as artifacts
+
+### 4. Security Check
+- Performs security scanning with Bandit
+- Checks dependencies for vulnerabilities with Safety
+- Archives security reports as artifacts
+
+### 5. SonarCloud Analysis
+- Performs code quality and security scanning
+- Uploads results to SonarCloud
+
+### 6. Docker Build and Push
+- Creates Docker image from application code
+- Pushes image to Docker Hub registry
+
+### 7. Deploy to Kubernetes
+- Installs Helm
+- Deploys application to Kubernetes using Helm chart
+- Sets image repository, tag, and pull policy
+
+### 8. Verify Deployment
+- Waits for pods to be ready
+- Checks pod status and logs
+- Verifies application is accessible and working correctly
+- Tests that the application returns "Hello, World!"
+
+## Jenkins Configuration
+
+### Required Jenkins Plugins
+- Docker Pipeline
+- Kubernetes CLI
+- SonarQube Scanner
+- Pipeline Utility Steps
+
+### Jenkins Credentials Setup
+1. Docker Hub credentials:
+   - Kind: Username with password
+   - ID: docker-hub-credentials
+   - Username: Your Docker Hub username
+   - Password: Your Docker Hub password
+
+2. SonarCloud token:
+   - Kind: Secret text
+   - ID: sonar
+   - Secret: Your SonarCloud token
+
+3. Discord webhook:
+   - Kind: Secret text
+   - ID: discord-webhook-url
+   - Secret: Your Discord webhook URL
+
+## Notification System
+The pipeline is configured to send Discord notifications on:
+- Successful pipeline completion
+- Pipeline failures
+
+## Deployment Verification
+After successful deployment, the application is verified by:
+1. Checking pod status and logs
+2. Setting up port forwarding to the service
+3. Making an HTTP request to the application
+4. Verifying the response matches "Hello, World!"
+
+## Manual Testing
+After successful deployment, you can access the application:
+```bash
+# Get minikube IP
+minikube ip
+
+# Access in browser
+# URL: http://<minikube-ip>:30081
+```
+
+## Security Considerations
+- Bandit scans for security vulnerabilities
+- Safety checks dependencies for known vulnerabilities
+- SonarCloud performs code quality and security analysis
+- Docker image is built with minimal dependencies
+- Kubernetes deployment follows best practices
+- Credentials are stored securely in Jenkins
+
+## Troubleshooting
+
+### Common Issues
+1. **Docker image pull fails**: Check Docker Hub credentials in Jenkins
+2. **SonarCloud analysis fails**: Verify SonarCloud token is valid
+3. **Deployment to Kubernetes fails**: Ensure minikube is running and kubectl is configured correctly
+4. **Verification fails**: Check if the application is accessible on the expected port
+
+### Debug Commands
+```bash
+# Check minikube status
+minikube status
+
+# View Kubernetes resources
+kubectl get all -n flask-app
+
+# Check pod logs
+kubectl logs -l app=flask-app -n flask-app
+
+# Verify Helm release
+helm list -n flask-app
+```
+
+# Task 5: WebApp Helm Chart Deployment
 
 ## Overview
 This project demonstrates deployment of a simple web application using Helm charts on Kubernetes (minikube).
@@ -127,7 +274,7 @@ kubectl logs -l app=webapp
 
 # RS School DevOps Course Tasks
 
-This repository contains infrastructure and deployment configurations for multiple DevOps tasks including AWS K3s cluster deployment and Jenkins automation with Helm.
+This repository contains infrastructure and deployment configurations for multiple DevOps tasks including AWS K3s cluster deployment, Jenkins automation with Helm, and CI/CD pipeline for application deployment.
 
 ## Project Overview
 
@@ -137,6 +284,9 @@ Terraform infrastructure for deploying a K3s Kubernetes cluster on AWS with bast
 ### Task 4: Jenkins Deployment with Helm on Minikube
 Jenkins deployment on Kubernetes using Helm charts in a local minikube environment with JCasC configuration and CI/CD pipeline setup.
 
+### Task 6: Application Deployment via Jenkins Pipeline
+Complete CI/CD pipeline using Jenkins to deploy a Flask application to Kubernetes with build, test, security scanning, Docker image creation, and deployment stages.
+
 ## Project Structure
 
 ```
@@ -144,14 +294,37 @@ rsschool-devops-course-tasks/
 ├── .github/workflows/
 │   ├── jenkins-deployment.yml     # GitHub Actions pipeline for Jenkins on AWS EKS
 │   └── terraform_execution.yml    # Terraform automation for AWS infrastructure
-├── helm-charts/jenkins/
-│   ├── Chart.yaml                 # Helm chart metadata
-│   └── values.yaml                # Jenkins configuration with JCasC
+├── app/
+│   ├── main.py                    # Flask application
+│   ├── test_main.py               # Unit tests
+│   ├── requirements.txt           # Python dependencies
+│   └── Dockerfile                 # Docker image definition
+├── helm-charts/
+│   ├── flask-app/                 # Helm chart for Flask application
+│   │   ├── templates/
+│   │   │   ├── deployment.yaml    # Kubernetes deployment
+│   │   │   └── service.yaml       # Kubernetes service
+│   │   ├── Chart.yaml             # Helm chart metadata
+│   │   └── values.yaml            # Configuration values
+│   ├── jenkins/
+│   │   ├── Chart.yaml             # Helm chart metadata
+│   │   └── values.yaml            # Jenkins configuration with JCasC
+│   └── webapp/
+│       ├── templates/
+│       │   ├── deployment.yaml    # Kubernetes deployment
+│       │   └── service.yaml       # Kubernetes service
+│       ├── Chart.yaml             # Helm chart metadata
+│       └── values.yaml            # Configuration values
 ├── k8s-manifests/
 │   └── jenkins-pvc.yaml          # Persistent Volume Claim for Jenkins
 ├── .terraform/                    # Terraform state files
+├── Jenkinsfile                    # Jenkins pipeline definition for Task 6
+├── jenkins-k8s-values.yaml        # Jenkins Helm values for Task 6
 ├── Makefile                       # Automation commands for Task 4
-├── README.md                     # This documentation
+├── README.md                      # This documentation
+├── setup-environment.ps1          # PowerShell script for environment setup
+├── sonar-project.properties       # SonarQube configuration
+├── TASK6-README.md               # Task 6 specific documentation
 ├── *.tf files                    # Terraform infrastructure files
 └── *-userdata.sh                 # EC2 user data scripts
 ```
@@ -222,7 +395,7 @@ kubectl get pod nginx
 ## Task 4: Jenkins Deployment with Helm on Minikube
 
 ### Prerequisites
-- **VirtualBox** installed and running
+- **Docker** installed and running
 - **minikube** v1.36.0 or later
 - **Helm** 3.x installed
 - **kubectl** configured
@@ -236,7 +409,7 @@ kubectl get pod nginx
 minikube delete
 
 # Start minikube with adequate resources
-minikube start --driver=virtualbox --memory=4096 --cpus=2 --disk-size=20g
+minikube start --driver=docker --memory=4096 --cpus=2 --disk-size=20g
 
 # Enable storage addons
 minikube addons enable default-storageclass
@@ -343,7 +516,7 @@ Persistent Volume Claim specification:
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Minikube      │    │   Jenkins        │    │   Persistent    │
-│   (VirtualBox)  │───▶│   Namespace      │───▶│   Volume        │
+│   (Docker)      │───▶│   Namespace      │───▶│   Volume        │
 │   + Storage     │    │   + NodePort     │    │   (5Gi)         │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
         │                       │
@@ -404,7 +577,7 @@ kubectl describe pod jenkins-0 -n jenkins
 
 # Restart minikube
 minikube stop
-minikube start --driver=virtualbox --memory=4096 --cpus=2
+minikube start --driver=docker --memory=4096 --cpus=2
 
 # Verify storage addons
 minikube addons list | findstr storage
@@ -423,7 +596,7 @@ kubectl describe pvc jenkins-pvc -n jenkins
 - kubectl (for local access)
 
 ### Task 4 Requirements
-- VirtualBox
+- Docker
 - minikube v1.36.0+
 - Helm 3.x
 - kubectl
@@ -468,6 +641,52 @@ kubectl delete namespace jenkins
 minikube stop
 minikube delete
 ```
+
+---
+
+## Task 6: Application Deployment via Jenkins Pipeline
+
+### Quick Start
+
+```powershell
+# Run setup script to configure environment
+.\setup-environment.ps1
+
+# Access Jenkins UI at http://<minikube-ip>:30080
+# Access SonarQube UI at http://<minikube-ip>:30082
+```
+
+> **Note:** This setup uses Docker as the minikube driver instead of VirtualBox
+
+### Pipeline Features
+- **Automated Builds**: Compiles and builds the application
+- **Unit Testing**: Runs tests and generates coverage reports
+- **Security Scanning**: Integrates with SonarQube for code quality and security analysis
+- **Docker Integration**: Builds and pushes Docker images to registry
+- **Kubernetes Deployment**: Deploys application to Kubernetes using Helm
+- **Notifications**: Sends Slack notifications on pipeline events
+
+### Key Files
+- `Jenkinsfile`: Jenkins pipeline definition
+- `app/`: Flask application source code
+- `helm-charts/flask-app/`: Helm chart for application deployment
+- `sonar-project.properties`: SonarQube configuration
+- `jenkins-k8s-values.yaml`: Jenkins Helm values
+- `setup-environment.ps1`: Environment setup script
+- `TASK6-README.md`: Detailed documentation
+
+### Accessing the Application
+
+After successful deployment, the Flask application is accessible at:
+```
+http://<minikube-ip>:30081
+```
+
+### Screenshots
+
+![Jenkins Pipeline](./screenshots/jenkins-pipeline.png)
+![Application Running](./screenshots/flask-app-running.png)
+![SonarQube Analysis](./screenshots/sonarqube-analysis.png)
 
 ## Project Context
 - **Multi-task repository**: Contains infrastructure from previous tasks (Terraform, AWS)
