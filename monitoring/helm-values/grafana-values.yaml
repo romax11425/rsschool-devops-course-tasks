@@ -1,0 +1,41 @@
+admin:
+  existingSecret: grafana-admin-secret
+  existingSecretPasswordKey: password
+
+datasources:
+  secretDefinition:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-kube-prometheus-prometheus:9090
+        access: proxy
+        isDefault: true
+
+dashboardsProvider:
+  enabled: true
+
+dashboardsConfigMaps:
+  - configMapName: grafana-dashboards
+    fileName: k8s-cluster-dashboard.json
+
+persistence:
+  enabled: true
+  storageClass: standard
+  size: 5Gi
+
+smtp:
+  enabled: true
+  host: localhost:587
+  user: <username>
+  password: <password>
+  fromAddress: <your-email@example.com>
+  fromName: Grafana
+  skipVerify: true
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false

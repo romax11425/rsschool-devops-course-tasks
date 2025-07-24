@@ -1,3 +1,215 @@
+# Task 7: Prometheus Deployment on K8s - Monitoring Setup
+
+This document provides a comprehensive guide for deploying and configuring Prometheus, Grafana, and Alertmanager on Kubernetes using Helm charts.
+
+## Overview
+
+This monitoring stack includes:
+- **Prometheus**: Metrics collection and storage
+- **Grafana**: Metrics visualization and dashboards
+- **Alertmanager**: Alert management and notifications
+- **Node Exporter**: System metrics collection
+- **Kube State Metrics**: Kubernetes cluster metrics
+
+## Prerequisites
+
+- Kubernetes cluster (minikube, EKS, or any K8s cluster)
+- Helm 3.x installed
+- kubectl configured to access your cluster
+
+## Quick Start
+
+```bash
+# Clone and navigate to monitoring directory
+cd monitoring
+
+# Make deployment script executable
+chmod +x deploy.sh
+
+# Deploy entire monitoring stack
+./deploy.sh
+
+# Verify deployment
+kubectl get all -n monitoring
+```
+
+## Installation Steps
+
+### 1. Add Helm Repositories
+
+```bash
+# Add Bitnami repository
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# Add Prometheus community repository
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+# Update repositories
+helm repo update
+```
+
+### 2. Create Monitoring Namespace
+
+```bash
+kubectl create namespace monitoring
+```
+
+### 3. Deploy Prometheus Stack
+
+```bash
+# Deploy Prometheus with custom values
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --values monitoring/helm-values/prometheus-values.yaml
+```
+
+### 4. Deploy Grafana
+
+```bash
+# Deploy Grafana with custom values
+helm install grafana bitnami/grafana \
+  --namespace monitoring \
+  --values monitoring/helm-values/grafana-values.yaml
+```
+
+### 5. Configure Alertmanager
+
+```bash
+# Apply Alertmanager configuration
+kubectl apply -f monitoring/alertmanager/
+```
+
+## Access Services
+
+### Prometheus Web UI
+```bash
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+```
+Access at: http://localhost:9090
+
+### Grafana Dashboard
+```bash
+kubectl port-forward -n monitoring svc/grafana 3000:3000
+```
+Access at: http://localhost:3000
+
+Default credentials:
+- Username: admin
+- Password: admin123
+
+### Alertmanager UI
+```bash
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-alertmanager 9093:9093
+```
+Access at: http://localhost:9093
+
+## Configuration Details
+
+### Prometheus Configuration
+- Scrapes metrics from Kubernetes API server, nodes, and pods
+- Includes service discovery for automatic target detection
+- Configured with retention period and storage settings
+
+### Grafana Configuration
+- Pre-configured with Prometheus as data source
+- Includes default dashboards for Kubernetes monitoring
+- SMTP configuration for alert notifications
+
+### Alertmanager Configuration
+- Email notifications for critical alerts
+- Alert routing and grouping rules
+- Silence and inhibition rules
+
+## Alert Rules
+
+The following alert rules are configured:
+
+1. **High CPU Utilization**: Triggers when node CPU usage > 80% for 5 minutes
+2. **High Memory Usage**: Triggers when node memory usage > 85% for 5 minutes
+3. **Disk Space Low**: Triggers when disk usage > 90%
+
+## Testing Alerts
+
+To test the alerting system:
+
+```bash
+# Create a stress test pod
+kubectl apply -f monitoring/stress-test.yaml
+
+# Monitor alerts in Alertmanager UI
+# Check email notifications
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Prometheus not scraping targets**
+   - Check service discovery configuration
+   - Verify RBAC permissions
+
+2. **Grafana not connecting to Prometheus**
+   - Verify data source URL
+   - Check network policies
+
+3. **Alerts not firing**
+   - Check alert rule syntax
+   - Verify Alertmanager configuration
+
+### Useful Commands
+
+```bash
+# Check all monitoring resources
+kubectl get all -n monitoring
+
+# View Prometheus configuration
+kubectl get prometheus -n monitoring -o yaml
+
+# Check Alertmanager configuration
+kubectl get alertmanager -n monitoring -o yaml
+
+# View logs
+kubectl logs -n monitoring -l app.kubernetes.io/name=prometheus
+kubectl logs -n monitoring -l app.kubernetes.io/name=grafana
+```
+
+## Security Considerations
+
+- All services are deployed in the monitoring namespace
+- RBAC is configured with minimal required permissions
+- Secrets are used for sensitive configuration data
+- Network policies can be applied for additional security
+
+## Maintenance
+
+### Backup
+- Prometheus data is stored in persistent volumes
+- Grafana dashboards can be exported as JSON
+- Configuration files are version controlled
+
+### Updates
+```bash
+# Update Helm repositories
+helm repo update
+
+# Upgrade Prometheus
+helm upgrade prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --values monitoring/helm-values/prometheus-values.yaml
+
+# Upgrade Grafana
+helm upgrade grafana bitnami/grafana \
+  --namespace monitoring \
+  --values monitoring/helm-values/grafana-values.yaml
+```
+
+## Additional Resources
+
+- [Prometheus Documentation](https://prometheus.io/docs/)
+- [Grafana Documentation](https://grafana.com/docs/)
+- [Kubernetes Monitoring Best Practices](https://kubernetes.io/docs/concepts/cluster-administration/monitoring/)
+
+
 # Task 6: CI/CD Pipeline with Jenkins for Flask Application
 
 ## Overview
