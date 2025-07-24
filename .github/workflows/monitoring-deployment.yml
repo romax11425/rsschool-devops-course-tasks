@@ -1,0 +1,41 @@
+name: Deploy Monitoring Stack
+
+on:
+  push:
+    branches: [ task_7 ]
+    paths: [ 'monitoring/**' ]
+  workflow_dispatch:
+
+jobs:
+  deploy-monitoring:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+        
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: 'latest'
+        
+    - name: Configure kubectl
+      run: |
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+        
+    - name: Deploy Monitoring Stack
+      run: |
+        chmod +x monitoring/deploy.sh
+        ./monitoring/deploy.sh
+        
+    - name: Verify Deployment
+      run: |
+        kubectl get all -n monitoring
+        kubectl get prometheusrules -n monitoring
+        kubectl get secrets -n monitoring
