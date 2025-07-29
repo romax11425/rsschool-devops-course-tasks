@@ -1,0 +1,24 @@
+grafana:
+  enabled: true
+  adminPassword: admin123
+  
+  # SMTP Configuration
+  smtp:
+    enabled: true
+    host: smtp.gmail.com:465
+    user: romax11425@gmail.com
+    password: "oyqh wfgb jsms howf"
+    from_address: romax11425@gmail.com
+    from_name: "Grafana Alerts"
+    skip_verify: true
+    
+  # Additional SMTP settings
+  env:
+    GF_SMTP_ENABLED: "true"
+    GF_SMTP_HOST: "smtp.gmail.com:465"
+    GF_SMTP_USER: "romax114@gmail.com"
+    GF_SMTP_PASSWORD: "oyqh wfgb jsms howf"
+    GF_SMTP_FROM_ADDRESS: "romax114@gmail.com"
+    GF_SMTP_FROM_NAME: "grafana"
+    GF_SMTP_SKIP_VERIFY: "true"
+    GF_SMTP_SSL_MODE: "require"
