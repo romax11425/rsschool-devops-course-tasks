@@ -1,0 +1,38 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: k8s-monitoring-rules
+  namespace: monitoring
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+  - name: k8s.rules
+    rules:
+    - alert: HighCPUUtilization
+      expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU utilization on node {{ $labels.instance }}"
+        description: "CPU utilization is above 80% for more than 5 minutes on node {{ $labels.instance }}"
+    
+    - alert: HighMemoryUsage
+      expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High memory usage on node {{ $labels.instance }}"
+        description: "Memory usage is above 85% for more than 5 minutes on node {{ $labels.instance }}"
+    
+    - alert: DiskSpaceLow
+      expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 90
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Low disk space on node {{ $labels.instance }}"
+        description: "Disk usage is above 90% on node {{ $labels.instance }}"
